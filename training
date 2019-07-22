@@ -1,0 +1,176 @@
+# global variable
+MaxA <- 100       #number of agent
+MaxT <- 1000      #number of time
+MaxR <- 20      #number of round
+err  <- 0.01       #rate of noize
+copy <- 0.05     #rate of copy
+mutation <- 0.005
+MaxS <- 6
+propcoop <- matrix(NA, MaxS, 5)  #propcoop[i, 1] probability of Cooperation i's first play
+                                 #propcoop[i, 2] probability of Cooperation i's after mutual cooperation)
+                                 #propcoop[i, 3] probability of Cooperation i's after betrayed
+                                 #propcoop[i, 4] probability of Cooperation i's after betray
+                                 #propcoop[i, 5] probability of Cooperation i's after mutual defection
+agentDF <- data.frame(id=1:MaxA, strategy=NA, match=NA, payoff=0, tact= NA, memory= NA, log=NA)
+dat <- array(0, dim=c(MaxT, MaxS))
+
+#setup
+setup.func <- function(){
+#ALLC: Always cooperate
+ propcoop[1, 1]<- 1
+ propcoop[1, 2]<- 1
+ propcoop[1, 3]<- 1
+ propcoop[1, 4]<- 1
+ propcoop[1, 5]<- 1   
+#ALLD: Always non-cooperate 
+ propcoop[2, 1]<- 0
+ propcoop[2, 2]<- 0
+ propcoop[2, 3]<- 0
+ propcoop[2, 4]<- 0
+ propcoop[2, 5]<- 0
+#TFT: The first step is cooperation,and then select tactics the opposite player did on the previous step.
+ propcoop[3, 1]<- 1
+ propcoop[3, 2]<- 1
+ propcoop[3, 3]<- 0
+ propcoop[3, 4]<- 1
+ propcoop[3, 5]<- 0     
+#GTFT: Basically the same as TFT, but even if the other party is non-cooperation, cooperates 10 percent 
+ propcoop[4, 1]<- 1
+ propcoop[4, 2]<- 1
+ propcoop[4, 3]<- 0.1
+ propcoop[4, 4]<- 1
+ propcoop[4, 5]<- 0.1
+#Pavlof: The first step is cooperation, and then Continue the same strategy if the previous result is mutual 
+#        cooperation(R),betrayal(T), change the strategy if the previous result is betrayed(S), mutual defection(P)
+ propcoop[5, 1]<- 1
+ propcoop[5, 2]<- 1
+ propcoop[5, 3]<- 0
+ propcoop[5, 4]<- 0
+ propcoop[5, 5]<- 1      
+#GPavlof: Basically the same as Pavlof, but even if the other party is non-cooperation, cooperates 10 percent
+ propcoop[6, 1]<- 1
+ propcoop[6, 2]<- 1
+ propcoop[6, 3]<- 0.1
+ propcoop[6, 4]<- 0.1
+ propcoop[6, 5]<- 1   
+return(propcoop) 
+}
+
+setup2.func <- function(){
+strats <- sample(x=1:MaxS, size=MaxA,TRUE) 
+return(strats) 
+}
+
+#matching
+matching.func <- function(){
+
+}
+
+#Stochastic cooperation
+stochasticCooperation.func <- function(i,j,r){  
+  if(r < propcoop[i, j])   return("C")
+  else  return("D")
+}
+
+#choose tactics each agent
+selectTactics.func <- function(){
+    tact <- c(1:MaxA)
+    rand <- runif(MaxA, min= 0, max=1)
+    for(i in 1:MaxA){
+        if (round==1){
+            tact[i] <- stochasticCooperation.func(agentDF$strategy[i], 1,rand[i])                            
+            }
+        else{ 
+          if  (agentDF$memory[i] == "R")     tact[i] <- stochasticCooperation.func(agentDF$strategy[i], 2,rand[i])
+          else if (agentDF$memory[i] == "S") tact[i] <- stochasticCooperation.func(agentDF$strategy[i], 3,rand[i])
+          else if (agentDF$memory[i] == "T") tact[i] <- stochasticCooperation.func(agentDF$strategy[i], 4,rand[i])     
+          else                               tact[i] <- stochasticCooperation.func(agentDF$strategy[i], 5,rand[i]) 
+          }
+    }
+  return(tact)  
+}   
+
+#error
+err.func <- function(tact){
+ if (tact =="C") return("D")  
+ else  return("C")      
+}
+    
+#game
+play.func <- function(agent){
+   rand <- runif(MaxA, min= 0, max=1)                         # noize
+   for(i in 1: MaxA){
+       if(rand[i] < err) {
+          agent$tact[i] <- err.func(agent$tact[i])
+          }
+       else{}   
+       }
+   for(i in 1: MaxA){ 
+       if (agent$tact[i] == "C" && agent$tact[agent$match[i]] == "C"){      # mutual cooperation
+           agent$memory[i]<-"R"
+           agent$payoff[i]<- agent$payoff[i]+3
+           }
+       else if (agent$tact[i] == "D" && agent$tact[agent$match[i]] == "C"){  # agent1 betrays agent2 
+           agent$memory[i]<-"T"
+           agent$payoff[i]<- agent$payoff[i]+5
+           }        
+       else if (agent$tact[i] == "D" && agent$tact[agent$match[i]] == "D"){ # mutual defection
+           agent$memory[i]<-"P"
+           agent$payoff[i]<- agent$payoff[i]+1
+           }
+       else {                                                  # agent1 betraed agent2 
+           agent$memory[i]<-"S"
+           agent$payoff[i]<- agent$payoff[i]+0
+           }
+       agent$log[i]<- paste(agent$log[i],agent$memory[i])
+       }
+   return(agent)
+}
+
+#learn(selection)
+selection.func <- function(agent){
+   
+}
+
+#mutation
+mutation.func <- function(agent){
+
+}
+
+#aggregate             
+agregate.func <- function(dat){
+for (i in 1:MaxA){
+    dat[time,agentDF$strategy[i]] <- dat[time,agentDF$strategy[i]] + 1
+    }
+return(dat)
+}
+
+#base
+propcoop <- setup.func()
+agentDF$strategy <- setup2.func()
+for(time in 1:MaxT){
+  agentDF$payoff <- 0  
+  agentDF$match <- matching.func()
+  for(i in 1:MaxA) agentDF$log[i] <- ""
+  for(round in 1:MaxR){
+    agentDF$tact <- selectTactics.func()#; agentDF    
+    agentDF <- play.func(agentDF)#; agentDF
+    } #round <- round+1  
+  agentDF <- selection.func(agentDF)
+  agentDF <- mutation.func(agentDF)
+  dat <- agregate.func(dat)
+  } #time <- time+1
+propcoop
+agentDF
+t <- c(1:MaxT)
+plot(t,dat[,1],ylim=c(0,MaxA),type="l", xlab="", ylab="", col="blue", main="Transition of strategy", sub="blue: AllC red: AllD black: TFT gray:GTFT green: Pavlof lime: GPavlof")
+par(new=T)
+plot(t,dat[,2],ylim=c(0,MaxA),type="l", xlab="", ylab="", col="red")
+par(new=T)
+plot(t,dat[,3],ylim=c(0,MaxA),type="l", xlab="", ylab="", col="black")
+par(new=T)
+plot(t,dat[,4],ylim=c(0,MaxA),type="l", xlab="", ylab="", col="grey")
+par(new=T)
+plot(t,dat[,5],ylim=c(0,MaxA),type="l", xlab="time", ylab="N", col="green")
+par(new=T)
+plot(t,dat[,6],ylim=c(0,MaxA),type="l", xlab="time", ylab="N", col="lime")
